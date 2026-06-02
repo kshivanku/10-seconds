@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Ten Seconds Game</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: #f4f0e8;
+        color: #111111;
+        font-family: Impact, Haettenschweiler, "Arial Black", "Franklin Gothic Heavy", sans-serif;
+        user-select: none;
+      }
+
+      .board {
+        --cell-size: 84px;
+        width: 100vw;
+        height: 100vh;
+        display: grid;
+        grid-template-columns: repeat(var(--cols), var(--cell-size));
+        grid-template-rows: repeat(var(--rows), var(--cell-size));
+        justify-content: center;
+        align-content: center;
+        background: #f4f0e8;
+      }
+
+      .board.readable {
+        --cell-size: min(9.2vw, 62px);
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-content: center;
+        gap: 0 calc(var(--cell-size) * 0.45);
+        padding: 18px;
+      }
+
+      .word {
+        display: inline-flex;
+        flex-wrap: nowrap;
+      }
+
+      .cell {
+        appearance: none;
+        width: var(--cell-size);
+        height: var(--cell-size);
+        margin: 0;
+        padding: 0;
+        display: grid;
+        place-items: center;
+        border: 1px solid rgba(17, 17, 17, 0.18);
+        background: rgba(244, 240, 232, 0.82);
+        color: #111111;
+        cursor: default;
+        font-size: calc(var(--cell-size) * 0.62);
+        font-weight: 900;
+        line-height: 1;
+        text-transform: uppercase;
+        touch-action: manipulation;
+      }
+
+      .cell.hot {
+        cursor: pointer;
+        background: #111111;
+        color: #f4f0e8;
+        font-family: Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif;
+        font-size: calc(var(--cell-size) * 0.72);
+        transform: scale(1.06);
+        z-index: 1;
+      }
+
+      .cell.locked {
+        background: rgba(244, 240, 232, 0.82);
+        border-color: rgba(17, 17, 17, 0.18);
+        color: #111111;
+        font-family: Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif;
+        font-size: calc(var(--cell-size) * 0.68);
+      }
+
+      .hud {
+        position: fixed;
+        left: 12px;
+        right: 12px;
+        bottom: 12px;
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        color: rgba(17, 17, 17, 0.62);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0;
+        pointer-events: none;
+        text-transform: uppercase;
+      }
+
+      @media (max-width: 640px) {
+        .board {
+          --cell-size: 64px;
+        }
+
+        .hud {
+          font-size: 10px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="board" id="board" aria-label="Tap each temporary poop emoji before it turns back into a letter"></main>
+    <div class="hud" aria-hidden="true">
+      <span id="stage">stage 1</span>
+      <span id="progress">0 / 0</span>
+    </div>
+
+    <script>
+      const sentence = "That only took 10 seconds to create. That's not the future, that's right now.";
+      const board = document.querySelector("#board");
+      const stageLabel = document.querySelector("#stage");
+      const progressLabel = document.querySelector("#progress");
+      const isSmallScreen = () => window.matchMedia("(max-width: 640px)").matches;
+      const stageOneSize = () => isSmallScreen() ? 52 : 76;
+      const stageTwoSize = () => isSmallScreen() ? 46 : 66;
+
+      let stage = 1;
+      let cellSize = stageTwoSize();
+      let cells = [];
+      let hotIndex = -1;
+      let spawnTimer = 0;
+      let revertTimer = 0;
+      let audioContext;
+
+      function letterFor(index) {
+        const compact = sentence.replace(/\s/g, "");
+        return compact[index % compact.length];
+      }
+
+      function buildStage() {
+        clearTimeout(spawnTimer);
+        clearTimeout(revertTimer);
+        hotIndex = -1;
+
+        const isReadableStage = stage <= 3;
+        const readableText = repeatedSentence(stage);
+        const readableChars = Array.from(readableText.replace(/\s/g, ""));
+        const stageCellSize = stage === 1 ? stageOneSize() : cellSize;
+        const cols = isReadableStage ? readableChars.length : Math.ceil(window.innerWidth / stageCellSize) + 1;
+        const rows = isReadableStage ? 1 : Math.ceil(window.innerHeight / stageCellSize) + 1;
+        const total = isReadableStage ? readableChars.length : cols * rows;
+
+        board.classList.toggle("readable", isReadableStage);
+        board.style.setProperty("--cell-size", `${stageCellSize}px`);
+        board.style.setProperty("--cols", cols);
+        board.style.setProperty("--rows", rows);
+        board.replaceChildren();
+
+        cells = Array.from({ length: total }, (_, index) => {
+          const cell = document.createElement("button");
+          cell.className = "cell";
+          cell.type = "button";
+          cell.dataset.index = String(index);
+          cell.dataset.letter = isReadableStage ? readableChars[index] : letterFor(index);
+          cell.textContent = cell.dataset.letter;
+          cell.addEventListener("pointerdown", claimCell);
+          return {
+            el: cell,
+            locked: false,
+            letter: cell.dataset.letter,
+          };
+        });
+
+        if (isReadableStage) {
+          let index = 0;
+          readableText.split(" ").forEach((wordText) => {
+            const word = document.createElement("span");
+            word.className = "word";
+
+            Array.from(wordText).forEach(() => {
+              word.append(cells[index].el);
+              index += 1;
+            });
+
+            board.append(word);
+          });
+        } else {
+          cells.forEach((cell) => board.append(cell.el));
+        }
+
+        updateHud();
+        schedulePoop(650);
+      }
+
+      function schedulePoop(delay = randomBetween(900, 1900)) {
+        clearTimeout(spawnTimer);
+        spawnTimer = setTimeout(spawnPoop, delay);
+      }
+
+      function spawnPoop() {
+        const available = cells
+          .map((cell, index) => (cell.locked ? -1 : index))
+          .filter((index) => index >= 0);
+
+        if (!available.length) {
+          finishStage();
+          return;
+        }
+
+        hotIndex = available[Math.floor(Math.random() * available.length)];
+        const cell = cells[hotIndex];
+        cell.el.classList.add("hot");
+        cell.el.textContent = "💩";
+
+        clearTimeout(revertTimer);
+        revertTimer = setTimeout(revertHotCell, randomBetween(850, 1450));
+      }
+
+      function revertHotCell() {
+        if (hotIndex < 0) {
+          return;
+        }
+
+        const cell = cells[hotIndex];
+        if (!cell.locked) {
+          cell.el.classList.remove("hot");
+          cell.el.textContent = cell.letter;
+          playBuzz();
+        }
+
+        hotIndex = -1;
+        schedulePoop();
+      }
+
+      function claimCell(event) {
+        primeAudio();
+        const index = Number(event.currentTarget.dataset.index);
+        if (index !== hotIndex || cells[index].locked) {
+          playBuzz();
+          return;
+        }
+
+        clearTimeout(revertTimer);
+        cells[index].locked = true;
+        cells[index].el.classList.remove("hot");
+        cells[index].el.classList.add("locked");
+        cells[index].el.textContent = "💩";
+        hotIndex = -1;
+        playPlop();
+        updateHud();
+
+        if (cells.every((cell) => cell.locked)) {
+          finishStage();
+          return;
+        }
+
+        schedulePoop(randomBetween(280, 900));
+      }
+
+      function finishStage() {
+        clearTimeout(spawnTimer);
+        clearTimeout(revertTimer);
+        stage += 1;
+        cellSize = stage === 2 ? stageTwoSize() : Math.max(6, Math.floor(cellSize * 0.82));
+        window.setTimeout(buildStage, 850);
+      }
+
+      function repeatedSentence(currentStage) {
+        const repeats = currentStage === 1 ? 1 : currentStage === 2 ? 2 : 4;
+        return Array.from({ length: repeats }, () => sentence).join(" ");
+      }
+
+      function updateHud() {
+        const locked = cells.filter((cell) => cell.locked).length;
+        stageLabel.textContent = `stage ${stage}`;
+        progressLabel.textContent = `${locked} / ${cells.length}`;
+      }
+
+      function randomBetween(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+      }
+
+      function primeAudio() {
+        audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
+
+        if (audioContext.state === "suspended") {
+          audioContext.resume();
+        }
+      }
+
+      function playPlop() {
+        if (!audioContext) {
+          return;
+        }
+
+        const now = audioContext.currentTime;
+        const master = audioContext.createGain();
+        const impact = audioContext.createOscillator();
+        const body = audioContext.createOscillator();
+        const filter = audioContext.createBiquadFilter();
+        const noiseBuffer = audioContext.createBuffer(1, audioContext.sampleRate * 0.12, audioContext.sampleRate);
+        const noiseData = noiseBuffer.getChannelData(0);
+        const noise = audioContext.createBufferSource();
+
+        for (let i = 0; i < noiseData.length; i += 1) {
+          noiseData[i] = (Math.random() * 2 - 1) * (1 - i / noiseData.length);
+        }
+
+        noise.buffer = noiseBuffer;
+
+        master.gain.setValueAtTime(0.0001, now);
+        master.gain.exponentialRampToValueAtTime(0.34, now + 0.012);
+        master.gain.exponentialRampToValueAtTime(0.0001, now + 0.28);
+
+        filter.type = "lowpass";
+        filter.frequency.setValueAtTime(360, now);
+        filter.frequency.exponentialRampToValueAtTime(92, now + 0.22);
+        filter.Q.setValueAtTime(2.4, now);
+
+        impact.type = "triangle";
+        impact.frequency.setValueAtTime(210, now);
+        impact.frequency.exponentialRampToValueAtTime(54, now + 0.18);
+
+        body.type = "sine";
+        body.frequency.setValueAtTime(82, now);
+        body.frequency.exponentialRampToValueAtTime(38, now + 0.25);
+
+        impact.connect(filter);
+        body.connect(filter);
+        noise.connect(filter);
+        filter.connect(master);
+        master.connect(audioContext.destination);
+
+        impact.start(now);
+        body.start(now + 0.018);
+        noise.start(now);
+        impact.stop(now + 0.22);
+        body.stop(now + 0.3);
+        noise.stop(now + 0.12);
+      }
+
+      function playBuzz() {
+        if (!audioContext) {
+          return;
+        }
+
+        const now = audioContext.currentTime;
+        const master = audioContext.createGain();
+        const oscillator = audioContext.createOscillator();
+        const wobble = audioContext.createOscillator();
+        const wobbleGain = audioContext.createGain();
+
+        master.gain.setValueAtTime(0.0001, now);
+        master.gain.exponentialRampToValueAtTime(0.18, now + 0.01);
+        master.gain.exponentialRampToValueAtTime(0.0001, now + 0.24);
+
+        oscillator.type = "sawtooth";
+        oscillator.frequency.setValueAtTime(95, now);
+        oscillator.frequency.linearRampToValueAtTime(72, now + 0.22);
+
+        wobble.type = "square";
+        wobble.frequency.setValueAtTime(38, now);
+        wobbleGain.gain.setValueAtTime(18, now);
+
+        wobble.connect(wobbleGain);
+        wobbleGain.connect(oscillator.frequency);
+        oscillator.connect(master);
+        master.connect(audioContext.destination);
+
+        wobble.start(now);
+        oscillator.start(now);
+        wobble.stop(now + 0.24);
+        oscillator.stop(now + 0.24);
+      }
+
+      window.addEventListener("resize", () => {
+        buildStage();
+      });
+
+      buildStage();
+    </script>
+  </body>
+</html>
