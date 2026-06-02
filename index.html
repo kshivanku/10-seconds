@@ -12,6 +12,8 @@
       html,
       body {
         height: 100%;
+        width: 100%;
+        overscroll-behavior: none;
       }
 
       body {
@@ -23,31 +25,26 @@
         user-select: none;
       }
 
+      @media (pointer: fine) {
+        body,
+        button {
+          cursor: none;
+        }
+      }
+
       .board {
         --cell-size: 84px;
-        width: 100vw;
-        height: 100vh;
+        position: fixed;
+        inset: 0;
+        width: 100dvw;
+        height: 100dvh;
+        overflow: hidden;
         display: grid;
         grid-template-columns: repeat(var(--cols), var(--cell-size));
         grid-template-rows: repeat(var(--rows), var(--cell-size));
         justify-content: center;
         align-content: center;
         background: #f4f0e8;
-      }
-
-      .board.readable {
-        --cell-size: min(9.2vw, 62px);
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        align-content: center;
-        gap: 0 calc(var(--cell-size) * 0.45);
-        padding: 18px;
-      }
-
-      .word {
-        display: inline-flex;
-        flex-wrap: nowrap;
       }
 
       .cell {
@@ -104,6 +101,67 @@
         text-transform: uppercase;
       }
 
+      .instructions {
+        position: fixed;
+        left: 50%;
+        bottom: 38px;
+        transform: translateX(-50%);
+        width: min(90vw, 620px);
+        color: rgba(17, 17, 17, 0.42);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0;
+        pointer-events: none;
+        text-align: center;
+        text-transform: uppercase;
+      }
+
+      .instructions.hidden {
+        display: none;
+      }
+
+      .hand-cursor {
+        position: fixed;
+        left: 0;
+        top: 0;
+        z-index: 10;
+        width: 54px;
+        height: 54px;
+        display: grid;
+        place-items: center;
+        font-family: Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif;
+        font-size: 42px;
+        line-height: 1;
+        opacity: 0;
+        pointer-events: none;
+        transform: translate3d(var(--hand-x, 50vw), var(--hand-y, 50vh), 0) translate(-28%, -18%) rotate(-22deg);
+        transform-origin: 34% 70%;
+        transition: opacity 120ms ease;
+      }
+
+      .hand-cursor.visible {
+        opacity: 1;
+      }
+
+      .hand-cursor.smacking {
+        animation: smack 180ms cubic-bezier(0.2, 0.9, 0.2, 1);
+      }
+
+      @keyframes smack {
+        0% {
+          transform: translate3d(var(--hand-x), var(--hand-y), 0) translate(-34%, -42%) rotate(-42deg) scale(1.08);
+        }
+
+        62% {
+          transform: translate3d(var(--hand-x), var(--hand-y), 0) translate(-18%, -4%) rotate(5deg) scale(0.9);
+        }
+
+        100% {
+          transform: translate3d(var(--hand-x), var(--hand-y), 0) translate(-28%, -18%) rotate(-22deg) scale(1);
+        }
+      }
+
       @media (max-width: 640px) {
         .board {
           --cell-size: 64px;
@@ -112,19 +170,34 @@
         .hud {
           font-size: 10px;
         }
+
+        .instructions {
+          bottom: 34px;
+          font-size: 10px;
+        }
+
+        .hand-cursor {
+          width: 46px;
+          height: 46px;
+          font-size: 36px;
+        }
       }
     </style>
   </head>
   <body>
-    <main class="board" id="board" aria-label="Tap each temporary poop emoji before it turns back into a letter"></main>
+    <main class="board" id="board" aria-label="What part of this is shit?"></main>
+    <div class="instructions" id="instructions" aria-hidden="true">tap the poop before it turns back</div>
     <div class="hud" aria-hidden="true">
       <span id="stage">stage 1</span>
       <span id="progress">0 / 0</span>
     </div>
+    <div class="hand-cursor" id="handCursor" aria-hidden="true">👋</div>
 
     <script>
       const sentence = "That only took 10 seconds to create. That's not the future, that's right now.";
       const board = document.querySelector("#board");
+      const handCursor = document.querySelector("#handCursor");
+      const instructions = document.querySelector("#instructions");
       const stageLabel = document.querySelector("#stage");
       const progressLabel = document.querySelector("#progress");
       const isSmallScreen = () => window.matchMedia("(max-width: 640px)").matches;
@@ -149,15 +222,12 @@
         clearTimeout(revertTimer);
         hotIndex = -1;
 
-        const isReadableStage = stage <= 3;
-        const readableText = repeatedSentence(stage);
-        const readableChars = Array.from(readableText.replace(/\s/g, ""));
         const stageCellSize = stage === 1 ? stageOneSize() : cellSize;
-        const cols = isReadableStage ? readableChars.length : Math.ceil(window.innerWidth / stageCellSize) + 1;
-        const rows = isReadableStage ? 1 : Math.ceil(window.innerHeight / stageCellSize) + 1;
-        const total = isReadableStage ? readableChars.length : cols * rows;
+        const cols = Math.max(1, Math.floor(window.innerWidth / stageCellSize));
+        const rows = Math.max(1, Math.floor(window.innerHeight / stageCellSize));
+        const total = cols * rows;
 
-        board.classList.toggle("readable", isReadableStage);
+        instructions.classList.toggle("hidden", stage !== 1);
         board.style.setProperty("--cell-size", `${stageCellSize}px`);
         board.style.setProperty("--cols", cols);
         board.style.setProperty("--rows", rows);
@@ -168,32 +238,16 @@
           cell.className = "cell";
           cell.type = "button";
           cell.dataset.index = String(index);
-          cell.dataset.letter = isReadableStage ? readableChars[index] : letterFor(index);
+          cell.dataset.letter = letterFor(index);
           cell.textContent = cell.dataset.letter;
           cell.addEventListener("pointerdown", claimCell);
+          board.append(cell);
           return {
             el: cell,
             locked: false,
             letter: cell.dataset.letter,
           };
         });
-
-        if (isReadableStage) {
-          let index = 0;
-          readableText.split(" ").forEach((wordText) => {
-            const word = document.createElement("span");
-            word.className = "word";
-
-            Array.from(wordText).forEach(() => {
-              word.append(cells[index].el);
-              index += 1;
-            });
-
-            board.append(word);
-          });
-        } else {
-          cells.forEach((cell) => board.append(cell.el));
-        }
 
         updateHud();
         schedulePoop(650);
@@ -270,11 +324,6 @@
         stage += 1;
         cellSize = stage === 2 ? stageTwoSize() : Math.max(6, Math.floor(cellSize * 0.82));
         window.setTimeout(buildStage, 850);
-      }
-
-      function repeatedSentence(currentStage) {
-        const repeats = currentStage === 1 ? 1 : currentStage === 2 ? 2 : 4;
-        return Array.from({ length: repeats }, () => sentence).join(" ");
       }
 
       function updateHud() {
@@ -356,29 +405,71 @@
         const oscillator = audioContext.createOscillator();
         const wobble = audioContext.createOscillator();
         const wobbleGain = audioContext.createGain();
+        const filter = audioContext.createBiquadFilter();
+        const noiseBuffer = audioContext.createBuffer(1, audioContext.sampleRate * 0.38, audioContext.sampleRate);
+        const noiseData = noiseBuffer.getChannelData(0);
+        const noise = audioContext.createBufferSource();
+
+        for (let i = 0; i < noiseData.length; i += 1) {
+          const fade = 1 - i / noiseData.length;
+          noiseData[i] = (Math.random() * 2 - 1) * fade * 0.55;
+        }
+
+        noise.buffer = noiseBuffer;
 
         master.gain.setValueAtTime(0.0001, now);
-        master.gain.exponentialRampToValueAtTime(0.18, now + 0.01);
-        master.gain.exponentialRampToValueAtTime(0.0001, now + 0.24);
+        master.gain.exponentialRampToValueAtTime(0.28, now + 0.025);
+        master.gain.setValueAtTime(0.22, now + 0.12);
+        master.gain.exponentialRampToValueAtTime(0.0001, now + 0.42);
+
+        filter.type = "lowpass";
+        filter.frequency.setValueAtTime(260, now);
+        filter.frequency.linearRampToValueAtTime(150, now + 0.36);
+        filter.Q.setValueAtTime(5, now);
 
         oscillator.type = "sawtooth";
-        oscillator.frequency.setValueAtTime(95, now);
-        oscillator.frequency.linearRampToValueAtTime(72, now + 0.22);
+        oscillator.frequency.setValueAtTime(72, now);
+        oscillator.frequency.linearRampToValueAtTime(48, now + 0.34);
 
         wobble.type = "square";
-        wobble.frequency.setValueAtTime(38, now);
-        wobbleGain.gain.setValueAtTime(18, now);
+        wobble.frequency.setValueAtTime(22, now);
+        wobbleGain.gain.setValueAtTime(16, now);
 
         wobble.connect(wobbleGain);
         wobbleGain.connect(oscillator.frequency);
-        oscillator.connect(master);
+        oscillator.connect(filter);
+        noise.connect(filter);
+        filter.connect(master);
         master.connect(audioContext.destination);
 
         wobble.start(now);
         oscillator.start(now);
-        wobble.stop(now + 0.24);
-        oscillator.stop(now + 0.24);
+        noise.start(now);
+        wobble.stop(now + 0.43);
+        oscillator.stop(now + 0.43);
+        noise.stop(now + 0.38);
       }
+
+      function moveHand(x, y) {
+        handCursor.style.setProperty("--hand-x", `${x}px`);
+        handCursor.style.setProperty("--hand-y", `${y}px`);
+        handCursor.classList.add("visible");
+      }
+
+      function smackHand(x, y) {
+        moveHand(x, y);
+        handCursor.classList.remove("smacking");
+        void handCursor.offsetWidth;
+        handCursor.classList.add("smacking");
+      }
+
+      window.addEventListener("pointermove", (event) => {
+        moveHand(event.clientX, event.clientY);
+      });
+
+      window.addEventListener("pointerdown", (event) => {
+        smackHand(event.clientX, event.clientY);
+      }, { capture: true });
 
       window.addEventListener("resize", () => {
         buildStage();
