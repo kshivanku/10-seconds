@@ -123,6 +123,84 @@
         display: none;
       }
 
+      .break-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 5;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+        pointer-events: none;
+      }
+
+      .break-overlay.hidden {
+        display: none;
+      }
+
+      .break-text {
+        grid-area: 1 / 1;
+        color: hsl(var(--hue), 95%, 54%);
+        font-size: clamp(4rem, 18vw, 16rem);
+        font-weight: 900;
+        line-height: 0.82;
+        opacity: 0.86;
+        text-align: center;
+        text-transform: uppercase;
+        transform: translate(var(--x), var(--y)) rotate(var(--r));
+        animation: flash 260ms steps(1, end) infinite;
+        mix-blend-mode: multiply;
+      }
+
+      .break-text:nth-child(1) {
+        --hue: 0;
+        --x: -5vw;
+        --y: -4vh;
+        --r: -8deg;
+      }
+
+      .break-text:nth-child(2) {
+        --hue: 56;
+        --x: 5vw;
+        --y: 4vh;
+        --r: 6deg;
+        animation-delay: 55ms;
+      }
+
+      .break-text:nth-child(3) {
+        --hue: 132;
+        --x: -1vw;
+        --y: 7vh;
+        --r: -2deg;
+        animation-delay: 110ms;
+      }
+
+      .break-text:nth-child(4) {
+        --hue: 210;
+        --x: 4vw;
+        --y: -7vh;
+        --r: 10deg;
+        animation-delay: 165ms;
+      }
+
+      .break-text:nth-child(5) {
+        --hue: 294;
+        --x: -7vw;
+        --y: 2vh;
+        --r: 3deg;
+        animation-delay: 220ms;
+      }
+
+      @keyframes flash {
+        0%,
+        100% {
+          opacity: 0.08;
+        }
+
+        50% {
+          opacity: 0.92;
+        }
+      }
+
       @media (max-width: 640px) {
         .board {
           --cell-size: 64px;
@@ -147,13 +225,23 @@
       <span id="stage">stage 1</span>
       <span id="progress">0 / 0</span>
     </div>
+    <div class="break-overlay hidden" id="breakOverlay" aria-hidden="true">
+      <div class="break-text">full of shit</div>
+      <div class="break-text">full of shit</div>
+      <div class="break-text">full of shit</div>
+      <div class="break-text">full of shit</div>
+      <div class="break-text">full of shit</div>
+    </div>
 
     <script>
       const sentence = "That only took 10 seconds to create. That's not the future, that's right now.";
       const board = document.querySelector("#board");
+      const breakOverlay = document.querySelector("#breakOverlay");
       const instructions = document.querySelector("#instructions");
       const stageLabel = document.querySelector("#stage");
       const progressLabel = document.querySelector("#progress");
+      const fartSound = new Audio("assets/fart.mp3");
+      const dripSound = new Audio("assets/drip.mp3");
       const isSmallScreen = () => window.matchMedia("(max-width: 640px)").matches;
       const stageOneSize = () => isSmallScreen() ? 52 : 76;
       const stageTwoSize = () => isSmallScreen() ? 46 : 66;
@@ -164,7 +252,7 @@
       let hotIndex = -1;
       let spawnTimer = 0;
       let revertTimer = 0;
-      let audioContext;
+      let isBetweenStages = false;
 
       function buildStage() {
         clearTimeout(spawnTimer);
@@ -261,7 +349,6 @@
         if (!cell.locked) {
           cell.el.classList.remove("hot");
           cell.el.textContent = cell.letter;
-          playBuzz();
         }
 
         hotIndex = -1;
@@ -269,10 +356,13 @@
       }
 
       function claimCell(event) {
-        primeAudio();
+        if (isBetweenStages) {
+          return;
+        }
+
         const index = Number(event.currentTarget.dataset.index);
         if (index !== hotIndex || cells[index].locked) {
-          playBuzz();
+          playFart();
           return;
         }
 
@@ -282,7 +372,7 @@
         cells[index].el.classList.add("locked");
         cells[index].el.textContent = "💩";
         hotIndex = -1;
-        playPlop();
+        playDrip();
         updateHud();
 
         if (cells.every((cell) => cell.locked)) {
@@ -296,9 +386,16 @@
       function finishStage() {
         clearTimeout(spawnTimer);
         clearTimeout(revertTimer);
+        isBetweenStages = true;
+        hotIndex = -1;
+        breakOverlay.classList.remove("hidden");
         stage += 1;
         cellSize = stage === 2 ? stageTwoSize() : Math.max(6, Math.floor(cellSize * 0.82));
-        window.setTimeout(buildStage, 850);
+        window.setTimeout(() => {
+          breakOverlay.classList.add("hidden");
+          isBetweenStages = false;
+          buildStage();
+        }, 5000);
       }
 
       function updateHud() {
@@ -311,121 +408,21 @@
         return Math.floor(Math.random() * (max - min + 1)) + min;
       }
 
-      function primeAudio() {
-        audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
-
-        if (audioContext.state === "suspended") {
-          audioContext.resume();
-        }
+      function playDrip() {
+        dripSound.currentTime = 0;
+        dripSound.play().catch(() => {});
       }
 
-      function playPlop() {
-        if (!audioContext) {
-          return;
-        }
-
-        const now = audioContext.currentTime;
-        const master = audioContext.createGain();
-        const impact = audioContext.createOscillator();
-        const body = audioContext.createOscillator();
-        const filter = audioContext.createBiquadFilter();
-        const noiseBuffer = audioContext.createBuffer(1, audioContext.sampleRate * 0.12, audioContext.sampleRate);
-        const noiseData = noiseBuffer.getChannelData(0);
-        const noise = audioContext.createBufferSource();
-
-        for (let i = 0; i < noiseData.length; i += 1) {
-          noiseData[i] = (Math.random() * 2 - 1) * (1 - i / noiseData.length);
-        }
-
-        noise.buffer = noiseBuffer;
-
-        master.gain.setValueAtTime(0.0001, now);
-        master.gain.exponentialRampToValueAtTime(0.34, now + 0.012);
-        master.gain.exponentialRampToValueAtTime(0.0001, now + 0.28);
-
-        filter.type = "lowpass";
-        filter.frequency.setValueAtTime(360, now);
-        filter.frequency.exponentialRampToValueAtTime(92, now + 0.22);
-        filter.Q.setValueAtTime(2.4, now);
-
-        impact.type = "triangle";
-        impact.frequency.setValueAtTime(210, now);
-        impact.frequency.exponentialRampToValueAtTime(54, now + 0.18);
-
-        body.type = "sine";
-        body.frequency.setValueAtTime(82, now);
-        body.frequency.exponentialRampToValueAtTime(38, now + 0.25);
-
-        impact.connect(filter);
-        body.connect(filter);
-        noise.connect(filter);
-        filter.connect(master);
-        master.connect(audioContext.destination);
-
-        impact.start(now);
-        body.start(now + 0.018);
-        noise.start(now);
-        impact.stop(now + 0.22);
-        body.stop(now + 0.3);
-        noise.stop(now + 0.12);
-      }
-
-      function playBuzz() {
-        if (!audioContext) {
-          return;
-        }
-
-        const now = audioContext.currentTime;
-        const master = audioContext.createGain();
-        const oscillator = audioContext.createOscillator();
-        const wobble = audioContext.createOscillator();
-        const wobbleGain = audioContext.createGain();
-        const filter = audioContext.createBiquadFilter();
-        const noiseBuffer = audioContext.createBuffer(1, audioContext.sampleRate * 0.38, audioContext.sampleRate);
-        const noiseData = noiseBuffer.getChannelData(0);
-        const noise = audioContext.createBufferSource();
-
-        for (let i = 0; i < noiseData.length; i += 1) {
-          const fade = 1 - i / noiseData.length;
-          noiseData[i] = (Math.random() * 2 - 1) * fade * 0.55;
-        }
-
-        noise.buffer = noiseBuffer;
-
-        master.gain.setValueAtTime(0.0001, now);
-        master.gain.exponentialRampToValueAtTime(0.28, now + 0.025);
-        master.gain.setValueAtTime(0.22, now + 0.12);
-        master.gain.exponentialRampToValueAtTime(0.0001, now + 0.42);
-
-        filter.type = "lowpass";
-        filter.frequency.setValueAtTime(260, now);
-        filter.frequency.linearRampToValueAtTime(150, now + 0.36);
-        filter.Q.setValueAtTime(5, now);
-
-        oscillator.type = "sawtooth";
-        oscillator.frequency.setValueAtTime(72, now);
-        oscillator.frequency.linearRampToValueAtTime(48, now + 0.34);
-
-        wobble.type = "square";
-        wobble.frequency.setValueAtTime(22, now);
-        wobbleGain.gain.setValueAtTime(16, now);
-
-        wobble.connect(wobbleGain);
-        wobbleGain.connect(oscillator.frequency);
-        oscillator.connect(filter);
-        noise.connect(filter);
-        filter.connect(master);
-        master.connect(audioContext.destination);
-
-        wobble.start(now);
-        oscillator.start(now);
-        noise.start(now);
-        wobble.stop(now + 0.43);
-        oscillator.stop(now + 0.43);
-        noise.stop(now + 0.38);
+      function playFart() {
+        fartSound.currentTime = 0;
+        fartSound.play().catch(() => {});
       }
 
       window.addEventListener("resize", () => {
+        if (isBetweenStages) {
+          return;
+        }
+
         buildStage();
       });
 
