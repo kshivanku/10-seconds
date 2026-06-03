@@ -69,8 +69,8 @@
 
       .poop {
         display: block;
-        width: calc(var(--cell-size) * 0.88);
-        height: calc(var(--cell-size) * 0.88);
+        width: calc(var(--cell-size) * var(--poop-scale, 0.88));
+        height: calc(var(--cell-size) * var(--poop-scale, 0.88));
         object-fit: contain;
         transform-origin: center;
         animation: glyph-spin var(--spin-speed, 4600ms) cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
@@ -162,9 +162,11 @@
         left: 0;
         top: 0;
         width: max-content;
-        font-size: clamp(4.4rem, 13vw, 15rem);
+        max-width: 92dvw;
+        font-size: var(--break-font-size, clamp(2.8rem, 8.6vw, 10rem));
         font-weight: 1000;
         line-height: 0.78;
+        white-space: nowrap;
         text-transform: uppercase;
       }
 
@@ -254,6 +256,7 @@
           cell.style.setProperty("--start-rotation", `${((index * 47) % 180) - 90}deg`);
           cell.style.setProperty("--spin-speed", `${3200 + (index % 7) * 520}ms`);
           cell.style.setProperty("--spin-direction", index % 2 === 0 ? 1 : -1);
+          cell.style.setProperty("--poop-scale", (0.52 + Math.random() * 0.72).toFixed(2));
           cell.classList.toggle("blank", character === " ");
           renderCellLetter(cell, character);
           cell.addEventListener("pointerdown", claimCell);
@@ -415,6 +418,7 @@
 
       function startBreakAnimation() {
         stopBreakAnimation();
+        fitBreakText();
 
         const bounds = () => ({
           width: Math.max(1, window.innerWidth - breakMover.offsetWidth),
@@ -450,12 +454,26 @@
           trail.textContent = "What takes 10 seconds?";
           trail.style.setProperty("--x", `${x}px`);
           trail.style.setProperty("--y", `${y}px`);
+          trail.style.setProperty("--break-font-size", getComputedStyle(breakMover).fontSize);
           trailLayer.append(trail);
         };
 
         breakTrailTimer = window.setInterval(stampTrail, 150);
         stampTrail();
         animate();
+      }
+
+      function fitBreakText() {
+        breakMover.style.setProperty("--break-font-size", "");
+        const availableWidth = window.innerWidth * 0.92;
+
+        if (breakMover.offsetWidth <= availableWidth) {
+          return;
+        }
+
+        const currentSize = parseFloat(getComputedStyle(breakMover).fontSize);
+        const fittedSize = Math.max(24, Math.floor(currentSize * (availableWidth / breakMover.offsetWidth)));
+        breakMover.style.setProperty("--break-font-size", `${fittedSize}px`);
       }
 
       function stopBreakAnimation() {
