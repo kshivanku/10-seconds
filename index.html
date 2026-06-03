@@ -19,7 +19,7 @@
       body {
         margin: 0;
         overflow: hidden;
-        background: #f4f0e8;
+        background: #fe7141;
         color: #111111;
         font-family: Impact, Haettenschweiler, "Arial Black", "Franklin Gothic Heavy", sans-serif;
         user-select: none;
@@ -37,7 +37,7 @@
         grid-template-rows: repeat(var(--rows), var(--cell-size));
         justify-content: center;
         align-content: center;
-        background: #f4f0e8;
+        background: #fe7141;
       }
 
       .cell {
@@ -48,32 +48,73 @@
         padding: 0;
         display: grid;
         place-items: center;
-        border: 1px solid rgba(17, 17, 17, 0.18);
-        background: rgba(244, 240, 232, 0.82);
+        overflow: hidden;
+        border: 0;
+        background: #fe7141;
         color: #111111;
         cursor: default;
-        font-size: calc(var(--cell-size) * 0.62);
+        font-size: calc(var(--cell-size) * 1.38);
         font-weight: 900;
         line-height: 1;
         text-transform: uppercase;
         touch-action: manipulation;
       }
 
+      .glyph {
+        display: block;
+        line-height: 0.78;
+        transform-origin: center;
+        animation: glyph-spin var(--spin-speed, 4600ms) cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
+      }
+
+      .poop {
+        display: block;
+        width: calc(var(--cell-size) * 0.88);
+        height: calc(var(--cell-size) * 0.88);
+        object-fit: contain;
+        transform-origin: center;
+        animation: glyph-spin var(--spin-speed, 4600ms) cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
+      }
+
+      @keyframes glyph-spin {
+        from {
+          transform: rotate(var(--start-rotation, 0deg)) scale(1.18);
+        }
+
+        to {
+          transform: rotate(calc(var(--start-rotation, 0deg) + var(--spin-direction, 1) * 360deg)) scale(1.18);
+        }
+      }
+
       .cell.hot {
         cursor: pointer;
         background: #111111;
-        color: #f4f0e8;
-        font-family: Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif;
+        color: #fe7141;
         font-size: calc(var(--cell-size) * 0.72);
         transform: scale(1.06);
         z-index: 1;
       }
 
+      .cell.tutorial {
+        animation: tutorial-blink 520ms steps(1, end) infinite;
+      }
+
+      @keyframes tutorial-blink {
+        0%,
+        100% {
+          background: #111111;
+          color: #fe7141;
+        }
+
+        50% {
+          background: #fe7141;
+          color: #111111;
+        }
+      }
+
       .cell.locked {
-        background: rgba(244, 240, 232, 0.82);
-        border-color: rgba(17, 17, 17, 0.18);
+        background: #fe7141;
         color: #111111;
-        font-family: Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif;
         font-size: calc(var(--cell-size) * 0.68);
       }
 
@@ -103,32 +144,10 @@
         text-transform: uppercase;
       }
 
-      .instructions {
-        position: fixed;
-        left: 50%;
-        bottom: 38px;
-        transform: translateX(-50%);
-        width: min(90vw, 620px);
-        color: rgba(17, 17, 17, 0.42);
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-        font-size: 12px;
-        font-weight: 800;
-        letter-spacing: 0;
-        pointer-events: none;
-        text-align: center;
-        text-transform: uppercase;
-      }
-
-      .instructions.hidden {
-        display: none;
-      }
-
       .break-overlay {
         position: fixed;
         inset: 0;
         z-index: 5;
-        display: grid;
-        place-items: center;
         overflow: hidden;
         pointer-events: none;
       }
@@ -137,68 +156,35 @@
         display: none;
       }
 
-      .break-text {
-        grid-area: 1 / 1;
-        color: hsl(var(--hue), 95%, 54%);
-        font-size: clamp(4rem, 18vw, 16rem);
+      .break-mover,
+      .trail-text {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: max-content;
+        font-size: clamp(2.6rem, 8vw, 8rem);
         font-weight: 900;
-        line-height: 0.82;
-        opacity: 0.86;
-        text-align: center;
+        line-height: 0.9;
         text-transform: uppercase;
-        transform: translate(var(--x), var(--y)) rotate(var(--r));
-        animation: flash 260ms steps(1, end) infinite;
-        mix-blend-mode: multiply;
       }
 
-      .break-text:nth-child(1) {
-        --hue: 0;
-        --x: -5vw;
-        --y: -4vh;
-        --r: -8deg;
+      .break-mover {
+        z-index: 2;
+        color: #111111;
+        filter: drop-shadow(0 3px 0 rgba(254, 113, 65, 0.85));
       }
 
-      .break-text:nth-child(2) {
-        --hue: 56;
-        --x: 5vw;
-        --y: 4vh;
-        --r: 6deg;
-        animation-delay: 55ms;
-      }
-
-      .break-text:nth-child(3) {
-        --hue: 132;
-        --x: -1vw;
-        --y: 7vh;
-        --r: -2deg;
-        animation-delay: 110ms;
-      }
-
-      .break-text:nth-child(4) {
-        --hue: 210;
-        --x: 4vw;
-        --y: -7vh;
-        --r: 10deg;
-        animation-delay: 165ms;
-      }
-
-      .break-text:nth-child(5) {
-        --hue: 294;
-        --x: -7vw;
-        --y: 2vh;
-        --r: 3deg;
-        animation-delay: 220ms;
-      }
-
-      @keyframes flash {
-        0%,
-        100% {
-          opacity: 0.08;
-        }
-
-        50% {
-          opacity: 0.92;
-        }
+      .trail-text {
+        color: #ffffff;
+        opacity: 1;
+        transform: translate(var(--x), var(--y));
+        -webkit-text-stroke: clamp(3px, 0.7vw, 9px) #111111;
+        paint-order: stroke fill;
+        text-shadow:
+          4px 4px 0 #111111,
+          -2px 4px 0 #111111,
+          4px -2px 0 #111111,
+          -2px -2px 0 #111111;
       }
 
       @media (max-width: 640px) {
@@ -210,49 +196,39 @@
           font-size: 10px;
         }
 
-        .instructions {
-          bottom: 34px;
-          font-size: 10px;
-        }
-
       }
     </style>
   </head>
   <body>
-    <main class="board" id="board" aria-label="What part of this is shit?"></main>
-    <div class="instructions" id="instructions" aria-hidden="true">What part of this is shit?</div>
+    <main class="board" id="board" aria-label="Tap temporary poop images before they turn back"></main>
     <div class="hud" aria-hidden="true">
       <span id="stage">stage 1</span>
       <span id="progress">0 / 0</span>
     </div>
     <div class="break-overlay hidden" id="breakOverlay" aria-hidden="true">
-      <div class="break-text">full of shit</div>
-      <div class="break-text">full of shit</div>
-      <div class="break-text">full of shit</div>
-      <div class="break-text">full of shit</div>
-      <div class="break-text">full of shit</div>
+      <div id="trailLayer"></div>
+      <div class="break-mover" id="breakMover">full of shit</div>
     </div>
 
     <script>
-      const sentence = "That only took 10 seconds to create. That's not the future, that's right now.";
+      const sentence = "That took 10 seconds to create.";
       const board = document.querySelector("#board");
       const breakOverlay = document.querySelector("#breakOverlay");
-      const instructions = document.querySelector("#instructions");
+      const breakMover = document.querySelector("#breakMover");
+      const trailLayer = document.querySelector("#trailLayer");
       const stageLabel = document.querySelector("#stage");
       const progressLabel = document.querySelector("#progress");
       const fartSound = new Audio("assets/fart.mp3");
       const dripSound = new Audio("assets/drip.mp3");
-      const isSmallScreen = () => window.matchMedia("(max-width: 640px)").matches;
-      const stageOneSize = () => isSmallScreen() ? 52 : 76;
-      const stageTwoSize = () => isSmallScreen() ? 46 : 66;
-
       let stage = 1;
-      let cellSize = stageTwoSize();
       let cells = [];
       let hotIndex = -1;
       let spawnTimer = 0;
       let revertTimer = 0;
       let isBetweenStages = false;
+      let breakAnimationFrame = 0;
+      let breakTrailTimer = 0;
+      let tutorialTargetsRemaining = 2;
 
       function buildStage() {
         clearTimeout(spawnTimer);
@@ -264,7 +240,6 @@
         const cols = Math.max(1, Math.floor(window.innerWidth / stageCellSize));
         const rows = Math.ceil(stageChars.length / cols);
 
-        instructions.classList.toggle("hidden", stage !== 1);
         board.style.setProperty("--cell-size", `${stageCellSize}px`);
         board.style.setProperty("--cols", cols);
         board.style.setProperty("--rows", rows);
@@ -276,8 +251,11 @@
           cell.type = "button";
           cell.dataset.index = String(index);
           cell.dataset.letter = character;
+          cell.style.setProperty("--start-rotation", `${((index * 47) % 180) - 90}deg`);
+          cell.style.setProperty("--spin-speed", `${3200 + (index % 7) * 520}ms`);
+          cell.style.setProperty("--spin-direction", index % 2 === 0 ? 1 : -1);
           cell.classList.toggle("blank", character === " ");
-          cell.textContent = character === " " ? "" : character;
+          renderCellLetter(cell, character);
           cell.addEventListener("pointerdown", claimCell);
           board.append(cell);
           return {
@@ -300,15 +278,40 @@
         return Array.from({ length: stage }, () => compact).join("").split("");
       }
 
-      function sizeForStage(totalCells) {
-        const desiredSize = stage === 1 ? stageOneSize() : cellSize;
-        const minSize = 6;
+      function renderCellLetter(cell, character) {
+        cell.replaceChildren();
 
-        for (let size = desiredSize; size >= minSize; size -= 1) {
-          const cols = Math.max(1, Math.floor(window.innerWidth / size));
+        if (character === " ") {
+          return;
+        }
+
+        const glyph = document.createElement("span");
+        glyph.className = "glyph";
+        glyph.textContent = character;
+        cell.append(glyph);
+      }
+
+      function renderPoop(cell) {
+        cell.replaceChildren();
+        const poop = document.createElement("img");
+        poop.className = "poop";
+        poop.src = "assets/poop.png";
+        poop.alt = "";
+        poop.draggable = false;
+        cell.append(poop);
+      }
+
+      function sizeForStage(totalCells) {
+        const minSize = 6;
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        const largestPossible = Math.floor(Math.min(viewportWidth, viewportHeight));
+
+        for (let size = largestPossible; size >= minSize; size -= 1) {
+          const cols = Math.max(1, Math.floor(viewportWidth / size));
           const rows = Math.ceil(totalCells / cols);
 
-          if (rows * size <= window.innerHeight) {
+          if (rows * size <= viewportHeight) {
             return size;
           }
         }
@@ -323,7 +326,7 @@
 
       function spawnPoop() {
         const available = cells
-          .map((cell, index) => (cell.locked ? -1 : index))
+          .map((cell, index) => (cell.locked || cell.letter === " " ? -1 : index))
           .filter((index) => index >= 0);
 
         if (!available.length) {
@@ -334,9 +337,14 @@
         hotIndex = available[Math.floor(Math.random() * available.length)];
         const cell = cells[hotIndex];
         cell.el.classList.add("hot");
-        cell.el.textContent = "💩";
+        renderPoop(cell.el);
 
         clearTimeout(revertTimer);
+        if (tutorialTargetsRemaining > 0) {
+          cell.el.classList.add("tutorial");
+          return;
+        }
+
         revertTimer = setTimeout(revertHotCell, randomBetween(850, 1450));
       }
 
@@ -348,7 +356,7 @@
         const cell = cells[hotIndex];
         if (!cell.locked) {
           cell.el.classList.remove("hot");
-          cell.el.textContent = cell.letter;
+          renderCellLetter(cell.el, cell.letter);
         }
 
         hotIndex = -1;
@@ -368,15 +376,21 @@
 
         clearTimeout(revertTimer);
         cells[index].locked = true;
-        cells[index].el.classList.remove("hot");
+        cells[index].el.classList.remove("hot", "tutorial");
         cells[index].el.classList.add("locked");
-        cells[index].el.textContent = "💩";
+        renderPoop(cells[index].el);
         hotIndex = -1;
         playDrip();
         updateHud();
 
-        if (cells.every((cell) => cell.locked)) {
+        if (isStageComplete()) {
           finishStage();
+          return;
+        }
+
+        if (tutorialTargetsRemaining > 0) {
+          tutorialTargetsRemaining -= 1;
+          schedulePoop(tutorialTargetsRemaining > 0 ? 500 : randomBetween(900, 1900));
           return;
         }
 
@@ -389,19 +403,78 @@
         isBetweenStages = true;
         hotIndex = -1;
         breakOverlay.classList.remove("hidden");
+        startBreakAnimation();
         stage += 1;
-        cellSize = stage === 2 ? stageTwoSize() : Math.max(6, Math.floor(cellSize * 0.82));
         window.setTimeout(() => {
+          stopBreakAnimation();
           breakOverlay.classList.add("hidden");
           isBetweenStages = false;
           buildStage();
         }, 5000);
       }
 
+      function startBreakAnimation() {
+        stopBreakAnimation();
+
+        const bounds = () => ({
+          width: Math.max(1, window.innerWidth - breakMover.offsetWidth),
+          height: Math.max(1, window.innerHeight - breakMover.offsetHeight),
+        });
+        let x = randomBetween(0, Math.max(1, window.innerWidth - breakMover.offsetWidth));
+        let y = randomBetween(0, Math.max(1, window.innerHeight - breakMover.offsetHeight));
+        let vx = window.innerWidth < 700 ? 3.3 : 5.2;
+        let vy = window.innerWidth < 700 ? 2.7 : 4.1;
+
+        const animate = () => {
+          const limit = bounds();
+          x += vx;
+          y += vy;
+
+          if (x <= 0 || x >= limit.width) {
+            vx *= -1;
+            x = Math.max(0, Math.min(x, limit.width));
+          }
+
+          if (y <= 0 || y >= limit.height) {
+            vy *= -1;
+            y = Math.max(0, Math.min(y, limit.height));
+          }
+
+          breakMover.style.transform = `translate(${x}px, ${y}px)`;
+          breakAnimationFrame = requestAnimationFrame(animate);
+        };
+
+        const stampTrail = () => {
+          const trail = document.createElement("div");
+          trail.className = "trail-text";
+          trail.textContent = "full of shit";
+          trail.style.setProperty("--x", `${x}px`);
+          trail.style.setProperty("--y", `${y}px`);
+          trailLayer.append(trail);
+        };
+
+        breakTrailTimer = window.setInterval(stampTrail, 150);
+        stampTrail();
+        animate();
+      }
+
+      function stopBreakAnimation() {
+        cancelAnimationFrame(breakAnimationFrame);
+        clearInterval(breakTrailTimer);
+        breakAnimationFrame = 0;
+        breakTrailTimer = 0;
+        trailLayer.replaceChildren();
+      }
+
       function updateHud() {
         const locked = cells.filter((cell) => cell.locked).length;
+        const targetable = cells.filter((cell) => cell.letter !== " ").length;
         stageLabel.textContent = `stage ${stage}`;
-        progressLabel.textContent = `${locked} / ${cells.length}`;
+        progressLabel.textContent = `${locked} / ${targetable}`;
+      }
+
+      function isStageComplete() {
+        return cells.every((cell) => cell.letter === " " || cell.locked);
       }
 
       function randomBetween(min, max) {
