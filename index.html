@@ -162,9 +162,9 @@
         left: 0;
         top: 0;
         width: max-content;
-        font-size: clamp(2.6rem, 8vw, 8rem);
-        font-weight: 900;
-        line-height: 0.9;
+        font-size: clamp(4.4rem, 13vw, 15rem);
+        font-weight: 1000;
+        line-height: 0.78;
         text-transform: uppercase;
       }
 
@@ -207,7 +207,7 @@
     </div>
     <div class="break-overlay hidden" id="breakOverlay" aria-hidden="true">
       <div id="trailLayer"></div>
-      <div class="break-mover" id="breakMover">full of shit</div>
+      <div class="break-mover" id="breakMover">What takes 10 seconds?</div>
     </div>
 
     <script>
@@ -447,7 +447,7 @@
         const stampTrail = () => {
           const trail = document.createElement("div");
           trail.className = "trail-text";
-          trail.textContent = "full of shit";
+          trail.textContent = "What takes 10 seconds?";
           trail.style.setProperty("--x", `${x}px`);
           trail.style.setProperty("--y", `${y}px`);
           trailLayer.append(trail);
