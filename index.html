@@ -29,8 +29,8 @@
         --cell-size: 84px;
         position: fixed;
         inset: 0;
-        width: 100dvw;
-        height: 100dvh;
+        width: var(--viewport-width, 100dvw);
+        height: var(--viewport-height, 100dvh);
         overflow: hidden;
         display: grid;
         grid-template-columns: repeat(var(--cols), var(--cell-size));
@@ -237,11 +237,14 @@
         clearTimeout(revertTimer);
         hotIndex = -1;
 
+        const viewport = visibleViewport();
         const stageChars = charsForStage();
         const stageCellSize = sizeForStage(stageChars.length);
-        const cols = Math.max(1, Math.floor(window.innerWidth / stageCellSize));
+        const cols = Math.max(1, Math.floor(viewport.width / stageCellSize));
         const rows = Math.ceil(stageChars.length / cols);
 
+        board.style.setProperty("--viewport-width", `${viewport.width}px`);
+        board.style.setProperty("--viewport-height", `${viewport.height}px`);
         board.style.setProperty("--cell-size", `${stageCellSize}px`);
         board.style.setProperty("--cols", cols);
         board.style.setProperty("--rows", rows);
@@ -305,9 +308,8 @@
       }
 
       function sizeForStage(totalCells) {
-        const minSize = 6;
-        const viewportWidth = window.innerWidth;
-        const viewportHeight = window.innerHeight;
+        const minSize = 1;
+        const { width: viewportWidth, height: viewportHeight } = visibleViewport();
         const largestPossible = Math.floor(Math.min(viewportWidth, viewportHeight));
 
         for (let size = largestPossible; size >= minSize; size -= 1) {
@@ -320,6 +322,14 @@
         }
 
         return minSize;
+      }
+
+      function visibleViewport() {
+        const viewport = window.visualViewport;
+        return {
+          width: Math.floor(viewport?.width || window.innerWidth),
+          height: Math.floor(viewport?.height || window.innerHeight),
+        };
       }
 
       function schedulePoop(delay = randomBetween(900, 1900)) {
@@ -420,14 +430,15 @@
         stopBreakAnimation();
         fitBreakText();
 
+        const viewport = visibleViewport();
         const bounds = () => ({
-          width: Math.max(1, window.innerWidth - breakMover.offsetWidth),
-          height: Math.max(1, window.innerHeight - breakMover.offsetHeight),
+          width: Math.max(1, visibleViewport().width - breakMover.offsetWidth),
+          height: Math.max(1, visibleViewport().height - breakMover.offsetHeight),
         });
-        let x = randomBetween(0, Math.max(1, window.innerWidth - breakMover.offsetWidth));
-        let y = randomBetween(0, Math.max(1, window.innerHeight - breakMover.offsetHeight));
-        let vx = window.innerWidth < 700 ? 3.3 : 5.2;
-        let vy = window.innerWidth < 700 ? 2.7 : 4.1;
+        let x = randomBetween(0, Math.max(1, viewport.width - breakMover.offsetWidth));
+        let y = randomBetween(0, Math.max(1, viewport.height - breakMover.offsetHeight));
+        let vx = viewport.width < 700 ? 3.3 : 5.2;
+        let vy = viewport.width < 700 ? 2.7 : 4.1;
 
         const animate = () => {
           const limit = bounds();
@@ -465,7 +476,7 @@
 
       function fitBreakText() {
         breakMover.style.setProperty("--break-font-size", "");
-        const availableWidth = window.innerWidth * 0.92;
+        const availableWidth = visibleViewport().width * 0.92;
 
         if (breakMover.offsetWidth <= availableWidth) {
           return;
@@ -509,13 +520,16 @@
         fartSound.play().catch(() => {});
       }
 
-      window.addEventListener("resize", () => {
+      function handleViewportResize() {
         if (isBetweenStages) {
           return;
         }
 
         buildStage();
-      });
+      }
+
+      window.addEventListener("resize", handleViewportResize);
+      window.visualViewport?.addEventListener("resize", handleViewportResize);
 
       buildStage();
     </script>
